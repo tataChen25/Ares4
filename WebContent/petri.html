@@ -12,56 +12,81 @@
 
 	<link rel="stylesheet" href="css/normalize.css">
 	<link rel="stylesheet" href="css/bootstrap.min.css">
+	<link rel="stylesheet" href="css/joint.css" />
 	<link rel="stylesheet" href="css/main.css">
 	<script src="js/vendor/modernizr-2.8.3.min.js"></script>
 </head>
 <body class="home">
 
 <div class="container">
-	<div class="row">
-		<div class="col-md-12">
-			<div class="site-brand" rel="go&href=index.html">
+
+	<nav class="navbar navbar-dark">
+		<button class="navbar-toggler hidden-md-up" type="button" data-toggle="collapse" data-target="#main-navbar">
+			&#9776;
+		</button>
+		<div class="collapse navbar-toggleable-sm" id="main-navbar">
+			<div class="navbar-brand" rel="go&href=index.html">
 				<h1>Ares4</h1>
 				<h7>@ OpenStack-Taiwan Hackathon</h7>
 			</div>
+			<ul class="nav navbar-nav">
+				<li class="nav-item">
+					<a class="nav-link" href="home.html">Home <span class="sr-only">(current)</span></a>
+				</li>
+				<li class="nav-item active">
+					<a class="nav-link" href="petri.html">PetriNet</a>
+				</li>
+				<li class="nav-item">
+					<a class="nav-link" href="cam.html">Cam Demo</a>
+				</li>
+				<li class="nav-item">
+					<a class="nav-link" href="about.html">The Team</a>
+				</li>
+			</ul>
 		</div>
-	</div>
+	</nav>
+
 	<div class="row">
-		<div class="col-md-4">
-			<div class="left-navigation">
-				<div class="list-group">
-					<a href="#" rel="go&href=home.html" class="list-group-item">Home</a>
-					<a href="#" rel="go&href=cam.html" class="list-group-item">Cam Demo</a>
-					<a href="#" rel="go&href=about.html" class="list-group-item active">The Team</a>
-				</div>
+		<div class="col-md-3">
+			<h1 class="text-md-right">PetriNet</h1>
+			<div class="controller hidden">
+				<button type="button" class="btn btn-success btn-block" rel="petri_start">Start</button>
+				<button type="button" class="btn btn-secondary btn-block active" rel="petri_stop" disabled>Stop</button>
 			</div>
+
+			<div class="cam-container">
+				<object classid="clsid:9BE31822-FDAD-461B-AD51-BE1D1C159921" codebase="http://download.videolan.org/pub/videolan/vlc/last/win32/axvlc.cab" id="vlc"><!-- target="rtsp://118.165.24.68/mpeg4" -->
+					<embed type="application/x-vlc-plugin" pluginspage="http://www.videolan.org"
+						name="vlc"
+						target="rtsp://192.168.1.56/mpeg4"
+						autoplay="yes"
+						loop="no"
+						width="250"
+						height="187"
+						/>
+				</object>
+			</div>
+			<div class="cam-container">
+				<object classid="clsid:9BE31822-FDAD-461B-AD51-BE1D1C159921" codebase="http://download.videolan.org/pub/videolan/vlc/last/win32/axvlc.cab" id="vlc"><!-- target="rtsp://118.165.24.68/mpeg4" -->
+					<embed type="application/x-vlc-plugin" pluginspage="http://www.videolan.org"
+						name="vlc"
+						target="rtsp://192.168.1.56/mpeg4"
+						autoplay="yes"
+						loop="no"
+						width="250"
+						height="187"
+						/>
+				</object>
+			</div>
+
 		</div>
-		<div class="col-md-8">
+		<div class="col-md-9">
 			<div class="main-content">
 				
-				<h1>The Team</h1>
-				<div class="team-member">
-					<dl>
-						<dt class="avatar">Po</dt>
-						<dt>Pohsun</dt>
-						<dd>System developer (Team Leader)</dd>
-
-						<dt class="avatar">Ta</dt>
-						<dt>Tata</dt>
-						<dd>System developer</dd>
-						
-						<dt class="avatar">Na</dt>
-						<dt>Nat</dt>
-						<dd>REST developer</dd>
-						
-						<dt class="avatar">To</dt>
-						<dt>Toad</dt>
-						<dd>UI designer</dd>
-						
-						<dt class="avatar">Mi</dt>
-						<dt>Milla</dt>
-						<dd>Speaker</dd>
-					</dl>
+				<p class="loading">Petri Net initializing ...</p>
+				<div class="paper-container">
+					<div class="paper-header hidden"></div>
+					<div id="paper" class="paper"></div>
 				</div>
 
 			</div>
@@ -69,13 +94,182 @@
 	</div>
 </div>
 
-<script src="https://code.jquery.com/jquery-1.12.0.min.js"></script>
-<script>window.jQuery || document.write('<script src="js/vendor/jquery-1.12.0.min.js"><\/script>')</script>
+<script src="js/vendor/jquery-1.12.0.min.js"></script>
 <script src="js/vendor/tether.min.js"></script>
 <script src="js/vendor/bootstrap.min.js"></script>
 <script src="js/vendor/underscore-min.js"></script>
 <script src="js/plugins.js"></script>
+<script src="js/vendor/lodash.min.js"></script> <!-- for petrinet -->
+<script src="js/vendor/backbone-min.js"></script> <!-- for petrinet -->
+<script src="js/vendor/joint.js"></script> <!-- for petrinet -->
 <script src="js/main.js"></script>
+<!-- <script src="js/pn-demo.js"></script> -->
+<script>
+
+var graph = new joint.dia.Graph();
+var paper = new joint.dia.Paper({
+    el: $('#paper'),
+    width: 710,
+    height: 570,
+    gridSize: 10,
+    perpendicularLinks: true,
+    model: graph
+});
+
+var pn = joint.shapes.pn;
+
+var p_ultraviolet_on = new pn.Place({
+    position: {x: 380, y: 270},
+    attrs: {
+        '.label': {text: 'ON', fill: '#7c68fc'},
+        '.root' : {stroke: '#9586fd', 'stroke-width': 3},
+        '.tokens > circle': {fill : '#7a7e9b'}
+    },
+    tokens: 0
+});
+var p_ultraviolet_off = p_ultraviolet_on.clone().attr({'.label': { text: 'Off' }}).position(270, 270).set('tokens', 1);
+
+var p_water_empty = p_ultraviolet_on.clone().attr({'.label': { text: 'No Water' }}).position(70, 80).set('tokens', 1);
+var p_value_1_open = p_ultraviolet_on.clone().attr({'.label': { text: 'Open' }}).position(20, 270).set('tokens', 0);
+var p_value_1_close = p_ultraviolet_on.clone().attr({'.label': { text: 'Close' }}).position(130, 270).set('tokens', 1);
+var p_water_filled = p_ultraviolet_on.clone().attr({'.label': { text: 'Filled' }}).position(70, 470).set('tokens', 0);
+
+var p_fertilizer_empty = p_ultraviolet_on.clone().attr({'.label': { text: 'No Fertilizer' }}).position(570, 80).set('tokens', 1);
+var p_value_2_on = p_ultraviolet_on.clone().attr({'.label': { text: 'ON' }}).position(630, 270).set('tokens', 0);
+var p_value_2_off = p_ultraviolet_on.clone().attr({'.label': { text: 'Off' }}).position(520, 270).set('tokens', 1);
+var p_fertilizer_filled = p_ultraviolet_on.clone().attr({'.label': { text: 'Filled' }}).position(570, 470).set('tokens', 0);
+
+var n_close_ultraviolet = new pn.Transition({
+    position: {x: 340, y: 80},
+    attrs: {
+        '.label': {text: '', fill: '#fe854f'},
+        '.root' : {fill: '#fe854f', stroke: '#fe854f'}
+    }
+});
+var n_open_ultraviolet = n_close_ultraviolet.clone().attr({'.label': { text: '' }}).position(340, 470);
+
+var n_open_value_1 = n_close_ultraviolet.clone().attr({'.label': { text: '' }}).position(90, 170);
+var n_close_value_1 = n_close_ultraviolet.clone().attr({'.label': { text: '' }}).position(90, 380);
+
+var n_open_value_2 = n_close_ultraviolet.clone().attr({'.label': { text: '' }}).position(590, 170);
+var n_close_value_2 = n_close_ultraviolet.clone().attr({'.label': { text: '' }}).position(590, 380);
+
+function link(a, b) {
+
+    return new pn.Link({
+        source: { id: a.id, selector: '.root' },
+        target: { id: b.id, selector: '.root' },
+        attrs: {
+            '.connection': {
+                'fill': 'none',
+                'stroke-linejoin': 'round',
+                'stroke-width': '2',
+                'stroke': '#333'
+            },
+            '.marker-target': {
+                'fill': '#333',
+                'stroke-width': '2',
+                'stroke': '#333'
+            }
+        }
+    });
+}
+
+graph.addCell([p_ultraviolet_on, p_ultraviolet_off, p_water_empty, p_value_1_open, p_value_1_close, p_water_filled, p_fertilizer_empty, p_value_2_on, p_value_2_off, p_fertilizer_filled, n_close_ultraviolet, n_open_ultraviolet, n_open_value_1, n_close_value_1, n_open_value_2, n_close_value_2]);
+
+graph.addCell([
+    link(n_close_ultraviolet, p_ultraviolet_off),
+    link(p_ultraviolet_off, n_open_ultraviolet),
+    link(n_open_ultraviolet, p_ultraviolet_on),
+    link(p_ultraviolet_on, n_close_ultraviolet),
+
+    link(n_close_ultraviolet, p_fertilizer_empty),
+    link(p_fertilizer_empty, n_open_value_2),
+    link(n_open_value_2, p_value_2_on),
+    link(p_value_2_on, n_close_value_2),
+    link(n_close_value_2, p_value_2_off),
+    link(p_value_2_off, n_open_value_2),
+    link(n_close_value_2, p_fertilizer_filled),
+    link(p_fertilizer_filled, n_open_ultraviolet),
+
+    link(n_close_ultraviolet, p_water_empty),
+    link(p_water_empty, n_open_value_1),
+    link(n_open_value_1, p_value_1_open),
+    link(p_value_1_open, n_close_value_1),
+    link(n_close_value_1, p_value_1_close),
+    link(p_value_1_close, n_open_value_1),
+    link(n_close_value_1, p_water_filled),
+    link(p_water_filled, n_open_ultraviolet),
+]);
+
+function fireTransition(t, sec) {
+
+    var inbound = graph.getConnectedLinks(t, { inbound: true });
+    var outbound = graph.getConnectedLinks(t, { outbound: true });
+
+    var placesBefore = _.map(inbound, function(link) {
+        return graph.getCell(link.get('source').id);
+    });
+    var placesAfter = _.map(outbound, function(link) {
+        return graph.getCell(link.get('target').id);
+    });
+
+    var isFirable = true;
+    _.each(placesBefore, function(p) { if (p.get('tokens') === 0) isFirable = false; });
+
+    if (isFirable) {
+
+        _.each(placesBefore, function(p) {
+            // Let the execution finish before adjusting the value of tokens. So that we can loop over all transitions
+            // and call fireTransition() on the original number of tokens.
+            _.defer(function() { p.set('tokens', p.get('tokens') - 1); });
+
+            var link = _.find(inbound, function(l) { return l.get('source').id === p.id; });
+            paper.findViewByModel(link).sendToken(V('circle', { r: 10, fill: '#f00' }).node, sec * 1000);
+
+            });
+
+            _.each(placesAfter, function(p) {
+            var link = _.find(outbound, function(l) { return l.get('target').id === p.id; });
+            paper.findViewByModel(link).sendToken(V('circle', { r: 10, fill: '#f00' }).node, sec * 1000, function() {
+                    p.set('tokens', p.get('tokens') + 1);
+            });
+
+            });
+    }
+}
+
+function simulate(opt) {
+	var opt = opt || false;
+    var transitions = [n_close_ultraviolet, n_open_ultraviolet, n_open_value_1, n_close_value_1, n_open_value_2, n_close_value_2];
+    _.each(transitions, function(t) { if (Math.random() < 0.7) fireTransition(t, 1); });
+
+    if (opt === 'init') {
+	    // hide loading message
+	    $('.loading').addClass('hidden');
+	    $('.controller,.paper-header').removeClass('hidden');
+    }
+    $('[rel="petri_start"],[rel="petri_stop"]').toggleClass('active');
+    $('[rel="petri_start"]').prop('disabled', true).toggleClass('btn-secondary btn-success');
+    $('[rel="petri_stop"]').prop('disabled', false).toggleClass('btn-secondary btn-danger');
+    $('.paper-container').removeClass('stopped');
+    
+    return setInterval(function() {
+        _.each(transitions, function(t) { if (Math.random() < 0.7) fireTransition(t, 1); });
+    }, 2000);
+}
+
+function stopSimulation(simulationId) {
+    $('[rel="petri_start"],[rel="petri_stop"]').toggleClass('active');
+    $('[rel="petri_start"]').prop('disabled', false).toggleClass('btn-secondary btn-success');
+    $('[rel="petri_stop"]').prop('disabled', true).toggleClass('btn-secondary btn-danger');
+    $('.paper-container').addClass('stopped');
+    clearInterval(simulationId);
+}
+
+var simulationId = simulate('init');
+
+</script>
 
 </body>
 </html>

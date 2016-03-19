@@ -34,6 +34,10 @@ function globalAction(e) {
 		if (!eo.is('label,[type="radio"],[type="checkbox"]') && !eoRel.is('label,[type="radio"],[type="checkbox"]')) {
 			e.preventDefault();
 		}
+
+		// extend options with data attributes (higher priority)
+		_.extend(options, eoRel.data());
+
 		if (_.isFunction(that[method])) {
 			that[method].apply(that, [e, options]);
 		} else if (_.isFunction(window[method])) {
@@ -58,6 +62,32 @@ function test(e, opt) {
 
 function go(e, opt) {
 	location = opt.href;
+}
+
+function petri_start(e, opt) {
+	var eo = $(e.target).closest('[rel]'),
+		opt = opt || {};
+	console.info('petri_start()'); simulationId = simulate(); return; //x
+	$.ajax({
+		type: 'PUT',
+		url: 'http://localhost:8080/ares4/rest/ctl/start',
+		success: function(res) {
+			console.info(res);
+		}
+	});
+}
+
+function petri_stop(e, opt) {
+	var eo = $(e.target).closest('[rel]'),
+		opt = opt || {};
+	console.info('petri_stop()'); stopSimulation(simulationId); return; //x
+	$.ajax({
+		type: 'PUT',
+		url: 'http://localhost:8080/ares4/rest/ctl/stop',
+		success: function(res) {
+			console.info(res);
+		}
+	});
 }
 
 
