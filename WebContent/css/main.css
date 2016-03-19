@@ -281,10 +281,30 @@ a:hover {
 }
 
 .paper-container {
+	position: relative;
 	background: #fff;
+	-moz-transition: all 1s ease .5s;
+	-webkit-transition: all 1s ease .5s;
+	transition: all 1s ease .5s;
+}
+.paper-mask {
+	position: absolute;
+	z-index: 999;
+	top: 0;
+	bottom: 0;
+	width: 100%;
+	background: #f00;
+	opacity: 0;
+}
+.paper-container.stopped .paper-mask {
+	opacity: .8;
 }
 .paper-container.stopped {
+	filter: grayscale(1);
 	-webkit-filter: grayscale(1);
+	-moz-transition: all 1s ease 0s;
+	-webkit-transition: all 1s ease 0s;
+	transition: all 1s ease 0s;
 }
 .paper-header {
 	background: #fff url(../img/patrinet-bg.jpg) no-repeat 50% 0;
