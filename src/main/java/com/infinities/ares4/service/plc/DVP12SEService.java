@@ -239,6 +239,7 @@ public class DVP12SEService {
 				}
 				logger.debug("work end");
 			}
+			return null;
 		}
 	}
 
