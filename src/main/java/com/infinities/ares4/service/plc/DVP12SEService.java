@@ -349,7 +349,7 @@ public class DVP12SEService {
 	}
 
 	public ExtendTimerTask triggerCloseUltraviolet() {
-		return new ExtendTimerTask(10) {
+		return new ExtendTimerTask(4) {
 
 			@Override
 			public void run() {
