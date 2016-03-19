@@ -20,10 +20,12 @@ import net.wimpi.modbus.util.BitVector;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 
 import com.infinities.ares4.service.plc.entity.ExtendTimerTask;
 import com.infinities.ares4.service.plc.entity.PetriNet;
 
+@Component
 public class DVP12SEService {
 
 	private static final Logger logger = LoggerFactory
@@ -239,7 +241,6 @@ public class DVP12SEService {
 				}
 				logger.debug("work end");
 			}
-			return null;
 		}
 	}
 
