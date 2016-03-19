@@ -67,12 +67,11 @@ function go(e, opt) {
 function petri_start(e, opt) {
 	var eo = $(e.target).closest('[rel]'),
 		opt = opt || {};
-	console.info('petri_start()'); simulationId = simulate(); return; //x
 	$.ajax({
 		type: 'PUT',
 		url: 'http://localhost:8080/ares4/rest/ctl/start',
 		success: function(res) {
-			console.info(res);
+			simulationId = simulate();
 		}
 	});
 }
@@ -80,12 +79,11 @@ function petri_start(e, opt) {
 function petri_stop(e, opt) {
 	var eo = $(e.target).closest('[rel]'),
 		opt = opt || {};
-	console.info('petri_stop()'); stopSimulation(simulationId); return; //x
 	$.ajax({
 		type: 'PUT',
 		url: 'http://localhost:8080/ares4/rest/ctl/stop',
 		success: function(res) {
-			console.info(res);
+			stopSimulation(simulationId);
 		}
 	});
 }
