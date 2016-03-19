@@ -1,0 +1,19 @@
+### Eclipse ###
+.classpath
+.project
+.settings/
+.metadata/
+.settings_backup/*
+.checkstyle
+.metadata
+
+
+### Maven ###
+target/
+
+### LOG ###
+*.log
+*.log.*
+logs/
+
+/target/
