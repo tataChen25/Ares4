@@ -153,6 +153,7 @@ public class DVP12SEService {
 					petriNet.getWater_empty().setHaveToken(false);
 				}
 			}
+			return null;
 		}
 	}
 
