@@ -1,9 +1,12 @@
 package com.infinities.ares4.service.plc;
 
 import java.net.InetAddress;
-import java.util.concurrent.Callable;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Timer;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import net.wimpi.modbus.Modbus;
 import net.wimpi.modbus.io.ModbusTCPTransaction;
@@ -18,6 +21,7 @@ import net.wimpi.modbus.util.BitVector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.infinities.ares4.service.plc.entity.ExtendTimerTask;
 import com.infinities.ares4.service.plc.entity.PetriNet;
 
 public class DVP12SEService {
@@ -30,6 +34,7 @@ public class DVP12SEService {
 	private final PetriNet petriNet = new PetriNet();
 	private boolean start = false;
 	private ScheduledExecutorService scheduler;
+	private int[] invariants = new int[5];
 
 	public DVP12SEService(String ip) {
 		this.ip = ip;
@@ -39,10 +44,21 @@ public class DVP12SEService {
 	public void start() {
 		this.setStart(true);
 		scheduler = Executors.newScheduledThreadPool(1);
+		scheduler.scheduleWithFixedDelay(new Worker(), 0, 500,
+				TimeUnit.MILLISECONDS);
 	}
 
 	public void stop() {
 		this.setStart(false);
+		scheduler.shutdownNow();
+	}
+
+	public synchronized int[] getInvariants() {
+		return this.invariants;
+	}
+
+	public synchronized void setInvariants(int[] invariants) {
+		this.invariants = invariants;
 	}
 
 	private BitVector readInputDiscretes() throws Exception {
@@ -141,19 +157,231 @@ public class DVP12SEService {
 		return petriNet;
 	}
 
-	private class Worker implements Callable<BitVector> {
+	private class Worker implements Runnable {
 
 		@Override
-		public BitVector call() throws Exception {
+		public void run() {
 			if (isStart()) {
+				List<ExtendTimerTask> tasks = new ArrayList<ExtendTimerTask>();
+				try {
+					BitVector inputs = readInputDiscretes();
+					if (inputs.getBit(0)) {
+						petriNet.getUltraviolet_on().setHaveToken(true);
+						petriNet.getUltraviolet_off().setHaveToken(false);
+					} else {
+						petriNet.getUltraviolet_off().setHaveToken(true);
+						petriNet.getUltraviolet_on().setHaveToken(false);
+					}
+				} catch (Exception e) {
+					logger.debug("read input failed");
+					return;
+				}
+
+				int[] invariants = new int[] { 0, 0, 0, 0, 0 };
+				if (petriNet.getWater_empty().isHaveToken()) {
+					invariants[0]++;
+				}
+				if (petriNet.getUltraviolet_on().isHaveToken()) {
+					invariants[0]++;
+				}
+				if (petriNet.getWater_filled().isHaveToken()) {
+					invariants[0]++;
+				}
+				if (petriNet.getValve_1_opened().isHaveToken()) {
+					invariants[0]++;
+				}
+
+				if (petriNet.getUltraviolet_on().isHaveToken()) {
+					invariants[1]++;
+				}
+				if (petriNet.getUltraviolet_off().isHaveToken()) {
+					invariants[1]++;
+				}
+
+				if (petriNet.getValve_2_opened().isHaveToken()) {
+					invariants[2]++;
+				}
+				if (petriNet.getValve_2_closed().isHaveToken()) {
+					invariants[2]++;
+				}
+
+				if (petriNet.getValve_1_opened().isHaveToken()) {
+					invariants[3]++;
+				}
+				if (petriNet.getValve_1_closed().isHaveToken()) {
+					invariants[3]++;
+				}
+
+				if (petriNet.getFertilizer_empty().isHaveToken()) {
+					invariants[4]++;
+				}
+				if (petriNet.getValve_2_opened().isHaveToken()) {
+					invariants[4]++;
+				}
+				if (petriNet.getFertilizer_filled().isHaveToken()) {
+					invariants[4]++;
+				}
+				if (petriNet.getUltraviolet_on().isHaveToken()) {
+					invariants[4]++;
+				}
+				setInvariants(invariants);
+
 				if (petriNet.getWater_empty().isHaveToken()
-						&& petriNet.getFertilizer_empty().isHaveToken()
-						&& petriNet.getValve_1_closed().isHaveToken()) {
-					petriNet.getValve_1_opened().setHaveToken(true);
-					petriNet.getWater_empty().setHaveToken(false);
+						&& petriNet.getValve_1_closed().isHaveToken()
+						&& !petriNet.getOpen_valve_1().isTrigger()) {
+					tasks.add(triggerOpenValve1());
+				}
+
+				if (petriNet.getValve_1_opened().isHaveToken()
+						&& !petriNet.getClose_valve_1().isTrigger()) {
+					tasks.add(triggerCloseValve1());
+				}
+
+				if (petriNet.getFertilizer_empty().isHaveToken()
+						&& petriNet.getValve_2_closed().isHaveToken()
+						&& !petriNet.getOpen_valve_2().isTrigger()) {
+					tasks.add(triggerOpenValve2());
+				}
+
+				if (petriNet.getValve_2_opened().isHaveToken()
+						&& !petriNet.getClose_valve_2().isTrigger()) {
+					tasks.add(triggerCloseValve2());
+				}
+
+				if (petriNet.getWater_filled().isHaveToken()
+						&& petriNet.getFertilizer_filled().isHaveToken()
+						&& petriNet.getUltraviolet_off().isHaveToken()
+						&& !petriNet.getOpen_ultraviolet().isTrigger()) {
+					tasks.add(triggerOpenUltraviolet());
+				}
+
+				if (petriNet.getUltraviolet_on().isHaveToken()
+						&& !petriNet.getClose_ultraviolet().isTrigger()) {
+					tasks.add(triggerCloseUltraviolet());
+				}
+
+				Timer timer = new Timer();
+				for (ExtendTimerTask task : tasks) {
+					timer.schedule(task, task.getTimed());
 				}
 			}
 		}
+	}
+
+	public ExtendTimerTask triggerOpenValve1() {
+		return new ExtendTimerTask(0) {
+
+			@Override
+			public void run() {
+				try {
+					writeCoils(2, true);
+				} catch (Exception e) {
+					logger.error("there is error when writing coil", e);
+				}
+				petriNet.getWater_empty().setHaveToken(false);
+				petriNet.getValve_1_closed().setHaveToken(false);
+				petriNet.getValve_1_opened().setHaveToken(true);
+				petriNet.getOpen_valve_1().setTrigger(false);
+			}
+
+		};
+	}
+
+	public ExtendTimerTask triggerCloseValve1() {
+		return new ExtendTimerTask(4) {
+
+			@Override
+			public void run() {
+				try {
+					writeCoils(2, false);
+				} catch (Exception e) {
+					logger.error("there is error when writing coil", e);
+				}
+				petriNet.getValve_1_opened().setHaveToken(false);
+				petriNet.getValve_1_closed().setHaveToken(true);
+				petriNet.getWater_filled().setHaveToken(true);
+				petriNet.getClose_valve_1().setTrigger(false);
+			}
+
+		};
+	}
+
+	public ExtendTimerTask triggerOpenValve2() {
+		return new ExtendTimerTask(0) {
+
+			@Override
+			public void run() {
+				try {
+					writeCoils(1, true);
+				} catch (Exception e) {
+					logger.error("there is error when writing coil", e);
+				}
+				petriNet.getFertilizer_empty().setHaveToken(false);
+				petriNet.getValve_2_closed().setHaveToken(false);
+				petriNet.getValve_2_opened().setHaveToken(true);
+				petriNet.getOpen_valve_2().setTrigger(false);
+			}
+
+		};
+	}
+
+	public ExtendTimerTask triggerCloseValve2() {
+		return new ExtendTimerTask(2) {
+
+			@Override
+			public void run() {
+				try {
+					writeCoils(1, false);
+				} catch (Exception e) {
+					logger.error("there is error when writing coil", e);
+				}
+				petriNet.getValve_2_opened().setHaveToken(false);
+				petriNet.getValve_2_closed().setHaveToken(true);
+				petriNet.getFertilizer_filled().setHaveToken(true);
+				petriNet.getClose_valve_2().setTrigger(false);
+			}
+
+		};
+	}
+
+	public ExtendTimerTask triggerOpenUltraviolet() {
+		return new ExtendTimerTask(0) {
+
+			@Override
+			public void run() {
+				try {
+					writeCoils(0, true);
+				} catch (Exception e) {
+					logger.error("there is error when writing coil", e);
+				}
+				petriNet.getFertilizer_filled().setHaveToken(false);
+				petriNet.getWater_filled().setHaveToken(false);
+				// petriNet.getUltraviolet_off().setHaveToken(false);
+				// petriNet.getUltraviolet_on().setHaveToken(true);
+				petriNet.getOpen_ultraviolet().setTrigger(false);
+			}
+
+		};
+	}
+
+	public ExtendTimerTask triggerCloseUltraviolet() {
+		return new ExtendTimerTask(0) {
+
+			@Override
+			public void run() {
+				try {
+					writeCoils(0, false);
+				} catch (Exception e) {
+					logger.error("there is error when writing coil", e);
+				}
+				// petriNet.getUltraviolet_on().setHaveToken(false);
+				// petriNet.getUltraviolet_off().setHaveToken(true);
+				petriNet.getFertilizer_empty().setHaveToken(true);
+				petriNet.getWater_empty().setHaveToken(true);
+				petriNet.getClose_ultraviolet().setTrigger(false);
+			}
+
+		};
 	}
 
 }
