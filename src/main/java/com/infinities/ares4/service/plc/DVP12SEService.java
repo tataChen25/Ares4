@@ -36,7 +36,7 @@ public class DVP12SEService {
 	private final PetriNet petriNet = new PetriNet();
 	private boolean start = false;
 	private ScheduledExecutorService scheduler;
-	private int[] invariants = new int[5];
+	private int[] invariants = new int[] { 1, 1, 1, 1, 1 };
 	private Object lock = new Object();
 
 	public DVP12SEService(String ip) {
