@@ -121,8 +121,8 @@ a:hover {
 	position: relative;
 	color: #fff;
 	text-decoration: none;
-	outline: 1px solid #fff;
-	outline-offset: 2px;
+	/*outline: 1px solid #fff;
+	outline-offset: 2px;*/
 }
 [rel] {
 	cursor: pointer;
@@ -151,26 +151,34 @@ a:hover {
 }
 
 
-.site-brand {
+.navbar-brand {
 	margin-top: 2rem;
+	margin-right: 4rem;
 }
-.site-brand h1 {
+.navbar-brand h1 {
 	font-size: 6rem;
 	margin-bottom: -0.5rem;
+	color: #fff;
 }
-.site-brand h7 {
+.navbar-brand h7 {
+	color: #fff;
 	font-size: 1rem;
 	margin-bottom: 2rem;
 	display: block;
 	font-weight: 100;
 	letter-spacing: 1px;
 }
-.site-brand:hover {
-	animation: blink .5s 1; /* infinite */
+.navbar-brand:hover {
+	animation: blink .5s infinite; /* infinite */
 }
 @keyframes blink {
 	0% { color: yellow; }
 	50% { color: red; }
+}
+.navbar-nav .nav-item {
+	margin-top: 6rem;
+	font-size: 1.4rem;
+	font-weight: 300;
 }
 
 .main-content {
@@ -209,14 +217,14 @@ a:hover {
 .left-navigation .list-group-item:hover {
 	background: #fff;
 	color: #333;
-	border-color: inherit;
+	border-color: #fff;
 	opacity: .5;
 	outline: none;
 }
 .left-navigation .list-group-item.active {
 	background: #fff;
 	color: #333;
-	border-color: inherit;
+	border-color: #fff;
 }
 
 .cam-container embed {
@@ -272,8 +280,26 @@ a:hover {
 	padding-left: 1rem;
 }
 
-
-
+.paper-container {
+	background: #fff;
+}
+.paper-container.stopped {
+	-webkit-filter: grayscale(1);
+}
+.paper-header {
+	background: #fff url(../img/patrinet-bg.jpg) no-repeat 50% 0;
+	padding-top: 120px;
+	height: 158px;
+}
+.paper {
+	margin: 0 auto;
+	width: 710px;
+}
+.controller {
+	padding-top: 1rem;
+	padding-bottom: 1rem;
+	text-align: right;
+}
 
 
 
