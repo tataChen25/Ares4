@@ -10,7 +10,7 @@ import org.jboss.logging.Logger;
 
 import com.infinities.ares4.service.plc.DVP12SEService;
 
-@Path("/rest")
+@Path("/ctl")
 public class FrontendRestService {
 	
 	private Logger LOG = Logger.getLogger(FrontendRestService.class);
