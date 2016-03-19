@@ -12,7 +12,7 @@ public class Transition implements Serializable {
 
 	private int workTime;
 	private Calendar startTime;
-	private boolean status = false;
+	private boolean trigger = false;
 
 	public Transition(int workTime) {
 		this.workTime = workTime;
@@ -34,15 +34,12 @@ public class Transition implements Serializable {
 		this.startTime = startTime;
 	}
 
-	public boolean isStatus() {
-		return status;
+	public boolean isTrigger() {
+		return trigger;
 	}
 
-	public void setStatus(boolean status) {
-		this.status = status;
+	public void setTrigger(boolean trigger) {
+		this.trigger = trigger;
 	}
 
-	public void trigger() {
-
-	}
 }
