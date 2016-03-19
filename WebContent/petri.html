@@ -49,7 +49,7 @@
 	<div class="row">
 		<div class="col-md-3">
 			<h1 class="text-md-right">PetriNet</h1>
-			<div class="controller hidden">
+			<div class="controller">
 				<button type="button" class="btn btn-success btn-block" rel="petri_start">Start</button>
 				<button type="button" class="btn btn-secondary btn-block active" rel="petri_stop" disabled>Stop</button>
 			</div>
@@ -83,10 +83,10 @@
 		<div class="col-md-9">
 			<div class="main-content">
 				
-				<p class="loading">Petri Net initializing ...</p>
-				<div class="paper-container">
-					<div class="paper-header hidden"></div>
-					<div id="paper" class="paper"></div>
+				<div class="paper-container stopped">
+                    <div class="paper-mask"></div>
+					<div class="paper-header"></div>
+                    <div id="paper" class="paper"></div>
 				</div>
 
 			</div>
@@ -244,11 +244,6 @@ function simulate(opt) {
     var transitions = [n_close_ultraviolet, n_open_ultraviolet, n_open_value_1, n_close_value_1, n_open_value_2, n_close_value_2];
     _.each(transitions, function(t) { if (Math.random() < 0.7) fireTransition(t, 1); });
 
-    if (opt === 'init') {
-	    // hide loading message
-	    $('.loading').addClass('hidden');
-	    $('.controller,.paper-header').removeClass('hidden');
-    }
     $('[rel="petri_start"],[rel="petri_stop"]').toggleClass('active');
     $('[rel="petri_start"]').prop('disabled', true).toggleClass('btn-secondary btn-success');
     $('[rel="petri_stop"]').prop('disabled', false).toggleClass('btn-secondary btn-danger');
@@ -267,7 +262,7 @@ function stopSimulation(simulationId) {
     clearInterval(simulationId);
 }
 
-var simulationId = simulate('init');
+var simulationId; //  = simulate('init');
 
 </script>
 
