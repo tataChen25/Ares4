@@ -3,7 +3,7 @@ package com.infinities.ares4.service.plc;
 import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Timer;
+import java.util.Scanner;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -35,6 +35,7 @@ public class DVP12SEService {
 	private boolean start = false;
 	private ScheduledExecutorService scheduler;
 	private int[] invariants = new int[5];
+	private Object lock = new Object();
 
 	public DVP12SEService(String ip) {
 		this.ip = ip;
@@ -43,7 +44,7 @@ public class DVP12SEService {
 
 	public void start() {
 		this.setStart(true);
-		scheduler = Executors.newScheduledThreadPool(1);
+		scheduler = Executors.newScheduledThreadPool(3);
 		scheduler.scheduleWithFixedDelay(new Worker(), 0, 500,
 				TimeUnit.MILLISECONDS);
 	}
@@ -51,6 +52,15 @@ public class DVP12SEService {
 	public void stop() {
 		this.setStart(false);
 		scheduler.shutdownNow();
+
+		for (int i = 0; i < 3; i++) {
+			try {
+				writeCoils(i, false);
+			} catch (Exception e) {
+				logger.error("there is a problem when stop plc", e);
+			}
+		}
+
 	}
 
 	public synchronized int[] getInvariants() {
@@ -161,109 +171,73 @@ public class DVP12SEService {
 
 		@Override
 		public void run() {
-			if (isStart()) {
-				List<ExtendTimerTask> tasks = new ArrayList<ExtendTimerTask>();
-				try {
-					BitVector inputs = readInputDiscretes();
-					if (inputs.getBit(0)) {
-						petriNet.getUltraviolet_on().setHaveToken(true);
-						petriNet.getUltraviolet_off().setHaveToken(false);
-					} else {
-						petriNet.getUltraviolet_off().setHaveToken(true);
-						petriNet.getUltraviolet_on().setHaveToken(false);
+			logger.debug("work begin");
+			synchronized (lock) {
+				if (isStart()) {
+					logger.debug("work start");
+					List<ExtendTimerTask> tasks = new ArrayList<ExtendTimerTask>();
+					try {
+						BitVector inputs = readInputDiscretes();
+						if (inputs.getBit(0)) {
+							petriNet.getUltraviolet_on().setHaveToken(true);
+							petriNet.getUltraviolet_off().setHaveToken(false);
+						} else {
+							petriNet.getUltraviolet_off().setHaveToken(true);
+							petriNet.getUltraviolet_on().setHaveToken(false);
+						}
+					} catch (Exception e) {
+						logger.debug("read input failed");
+						return;
 					}
-				} catch (Exception e) {
-					logger.debug("read input failed");
-					return;
-				}
 
-				int[] invariants = new int[] { 0, 0, 0, 0, 0 };
-				if (petriNet.getWater_empty().isHaveToken()) {
-					invariants[0]++;
-				}
-				if (petriNet.getUltraviolet_on().isHaveToken()) {
-					invariants[0]++;
-				}
-				if (petriNet.getWater_filled().isHaveToken()) {
-					invariants[0]++;
-				}
-				if (petriNet.getValve_1_opened().isHaveToken()) {
-					invariants[0]++;
-				}
+					updateInvariants();
 
-				if (petriNet.getUltraviolet_on().isHaveToken()) {
-					invariants[1]++;
-				}
-				if (petriNet.getUltraviolet_off().isHaveToken()) {
-					invariants[1]++;
-				}
+					if (petriNet.getWater_empty().isHaveToken()
+							&& petriNet.getValve_1_closed().isHaveToken()
+							&& !petriNet.getOpen_valve_1().isTrigger()) {
+						petriNet.getOpen_valve_1().setTrigger(true);
+						tasks.add(triggerOpenValve1());
+					}
 
-				if (petriNet.getValve_2_opened().isHaveToken()) {
-					invariants[2]++;
-				}
-				if (petriNet.getValve_2_closed().isHaveToken()) {
-					invariants[2]++;
-				}
+					if (petriNet.getValve_1_opened().isHaveToken()
+							&& !petriNet.getClose_valve_1().isTrigger()) {
+						petriNet.getClose_valve_1().setTrigger(true);
+						tasks.add(triggerCloseValve1());
+					}
 
-				if (petriNet.getValve_1_opened().isHaveToken()) {
-					invariants[3]++;
-				}
-				if (petriNet.getValve_1_closed().isHaveToken()) {
-					invariants[3]++;
-				}
+					if (petriNet.getFertilizer_empty().isHaveToken()
+							&& petriNet.getValve_2_closed().isHaveToken()
+							&& !petriNet.getOpen_valve_2().isTrigger()) {
+						petriNet.getOpen_valve_2().setTrigger(true);
+						tasks.add(triggerOpenValve2());
+					}
 
-				if (petriNet.getFertilizer_empty().isHaveToken()) {
-					invariants[4]++;
-				}
-				if (petriNet.getValve_2_opened().isHaveToken()) {
-					invariants[4]++;
-				}
-				if (petriNet.getFertilizer_filled().isHaveToken()) {
-					invariants[4]++;
-				}
-				if (petriNet.getUltraviolet_on().isHaveToken()) {
-					invariants[4]++;
-				}
-				setInvariants(invariants);
+					if (petriNet.getValve_2_opened().isHaveToken()
+							&& !petriNet.getClose_valve_2().isTrigger()) {
+						petriNet.getClose_valve_2().setTrigger(true);
+						tasks.add(triggerCloseValve2());
+					}
 
-				if (petriNet.getWater_empty().isHaveToken()
-						&& petriNet.getValve_1_closed().isHaveToken()
-						&& !petriNet.getOpen_valve_1().isTrigger()) {
-					tasks.add(triggerOpenValve1());
-				}
+					if (petriNet.getWater_filled().isHaveToken()
+							&& petriNet.getFertilizer_filled().isHaveToken()
+							&& petriNet.getUltraviolet_off().isHaveToken()
+							&& !petriNet.getOpen_ultraviolet().isTrigger()) {
+						petriNet.getOpen_ultraviolet().setTrigger(true);
+						tasks.add(triggerOpenUltraviolet());
+					}
 
-				if (petriNet.getValve_1_opened().isHaveToken()
-						&& !petriNet.getClose_valve_1().isTrigger()) {
-					tasks.add(triggerCloseValve1());
-				}
+					if (petriNet.getUltraviolet_on().isHaveToken()
+							&& !petriNet.getClose_ultraviolet().isTrigger()) {
+						petriNet.getClose_ultraviolet().setTrigger(true);
+						tasks.add(triggerCloseUltraviolet());
+					}
 
-				if (petriNet.getFertilizer_empty().isHaveToken()
-						&& petriNet.getValve_2_closed().isHaveToken()
-						&& !petriNet.getOpen_valve_2().isTrigger()) {
-					tasks.add(triggerOpenValve2());
+					for (ExtendTimerTask task : tasks) {
+						scheduler.schedule(task, task.getTimed(),
+								TimeUnit.SECONDS);
+					}
 				}
-
-				if (petriNet.getValve_2_opened().isHaveToken()
-						&& !petriNet.getClose_valve_2().isTrigger()) {
-					tasks.add(triggerCloseValve2());
-				}
-
-				if (petriNet.getWater_filled().isHaveToken()
-						&& petriNet.getFertilizer_filled().isHaveToken()
-						&& petriNet.getUltraviolet_off().isHaveToken()
-						&& !petriNet.getOpen_ultraviolet().isTrigger()) {
-					tasks.add(triggerOpenUltraviolet());
-				}
-
-				if (petriNet.getUltraviolet_on().isHaveToken()
-						&& !petriNet.getClose_ultraviolet().isTrigger()) {
-					tasks.add(triggerCloseUltraviolet());
-				}
-
-				Timer timer = new Timer();
-				for (ExtendTimerTask task : tasks) {
-					timer.schedule(task, task.getTimed());
-				}
+				logger.debug("work end");
 			}
 		}
 	}
@@ -273,15 +247,17 @@ public class DVP12SEService {
 
 			@Override
 			public void run() {
-				try {
-					writeCoils(2, true);
-				} catch (Exception e) {
-					logger.error("there is error when writing coil", e);
+				synchronized (lock) {
+					try {
+						writeCoils(2, true);
+					} catch (Exception e) {
+						logger.error("there is error when writing coil", e);
+					}
+					petriNet.getWater_empty().setHaveToken(false);
+					petriNet.getValve_1_closed().setHaveToken(false);
+					petriNet.getValve_1_opened().setHaveToken(true);
+					petriNet.getOpen_valve_1().setTrigger(false);
 				}
-				petriNet.getWater_empty().setHaveToken(false);
-				petriNet.getValve_1_closed().setHaveToken(false);
-				petriNet.getValve_1_opened().setHaveToken(true);
-				petriNet.getOpen_valve_1().setTrigger(false);
 			}
 
 		};
@@ -292,15 +268,17 @@ public class DVP12SEService {
 
 			@Override
 			public void run() {
-				try {
-					writeCoils(2, false);
-				} catch (Exception e) {
-					logger.error("there is error when writing coil", e);
+				synchronized (lock) {
+					try {
+						writeCoils(2, false);
+					} catch (Exception e) {
+						logger.error("there is error when writing coil", e);
+					}
+					petriNet.getValve_1_opened().setHaveToken(false);
+					petriNet.getValve_1_closed().setHaveToken(true);
+					petriNet.getWater_filled().setHaveToken(true);
+					petriNet.getClose_valve_1().setTrigger(false);
 				}
-				petriNet.getValve_1_opened().setHaveToken(false);
-				petriNet.getValve_1_closed().setHaveToken(true);
-				petriNet.getWater_filled().setHaveToken(true);
-				petriNet.getClose_valve_1().setTrigger(false);
 			}
 
 		};
@@ -311,15 +289,17 @@ public class DVP12SEService {
 
 			@Override
 			public void run() {
-				try {
-					writeCoils(1, true);
-				} catch (Exception e) {
-					logger.error("there is error when writing coil", e);
+				synchronized (lock) {
+					try {
+						writeCoils(1, true);
+					} catch (Exception e) {
+						logger.error("there is error when writing coil", e);
+					}
+					petriNet.getFertilizer_empty().setHaveToken(false);
+					petriNet.getValve_2_closed().setHaveToken(false);
+					petriNet.getValve_2_opened().setHaveToken(true);
+					petriNet.getOpen_valve_2().setTrigger(false);
 				}
-				petriNet.getFertilizer_empty().setHaveToken(false);
-				petriNet.getValve_2_closed().setHaveToken(false);
-				petriNet.getValve_2_opened().setHaveToken(true);
-				petriNet.getOpen_valve_2().setTrigger(false);
 			}
 
 		};
@@ -330,15 +310,17 @@ public class DVP12SEService {
 
 			@Override
 			public void run() {
-				try {
-					writeCoils(1, false);
-				} catch (Exception e) {
-					logger.error("there is error when writing coil", e);
+				synchronized (lock) {
+					try {
+						writeCoils(1, false);
+					} catch (Exception e) {
+						logger.error("there is error when writing coil", e);
+					}
+					petriNet.getValve_2_opened().setHaveToken(false);
+					petriNet.getValve_2_closed().setHaveToken(true);
+					petriNet.getFertilizer_filled().setHaveToken(true);
+					petriNet.getClose_valve_2().setTrigger(false);
 				}
-				petriNet.getValve_2_opened().setHaveToken(false);
-				petriNet.getValve_2_closed().setHaveToken(true);
-				petriNet.getFertilizer_filled().setHaveToken(true);
-				petriNet.getClose_valve_2().setTrigger(false);
 			}
 
 		};
@@ -349,39 +331,112 @@ public class DVP12SEService {
 
 			@Override
 			public void run() {
-				try {
-					writeCoils(0, true);
-				} catch (Exception e) {
-					logger.error("there is error when writing coil", e);
+				synchronized (lock) {
+					try {
+						writeCoils(0, true);
+					} catch (Exception e) {
+						logger.error("there is error when writing coil", e);
+					}
+					petriNet.getFertilizer_filled().setHaveToken(false);
+					petriNet.getWater_filled().setHaveToken(false);
+					// petriNet.getUltraviolet_off().setHaveToken(false);
+					// petriNet.getUltraviolet_on().setHaveToken(true);
+					petriNet.getOpen_ultraviolet().setTrigger(false);
 				}
-				petriNet.getFertilizer_filled().setHaveToken(false);
-				petriNet.getWater_filled().setHaveToken(false);
-				// petriNet.getUltraviolet_off().setHaveToken(false);
-				// petriNet.getUltraviolet_on().setHaveToken(true);
-				petriNet.getOpen_ultraviolet().setTrigger(false);
 			}
 
 		};
 	}
 
 	public ExtendTimerTask triggerCloseUltraviolet() {
-		return new ExtendTimerTask(0) {
+		return new ExtendTimerTask(10) {
 
 			@Override
 			public void run() {
-				try {
-					writeCoils(0, false);
-				} catch (Exception e) {
-					logger.error("there is error when writing coil", e);
+				synchronized (lock) {
+					try {
+						writeCoils(0, false);
+					} catch (Exception e) {
+						logger.error("there is error when writing coil", e);
+					}
+					// petriNet.getUltraviolet_on().setHaveToken(false);
+					// petriNet.getUltraviolet_off().setHaveToken(true);
+					petriNet.getFertilizer_empty().setHaveToken(true);
+					petriNet.getWater_empty().setHaveToken(true);
+					petriNet.getClose_ultraviolet().setTrigger(false);
 				}
-				// petriNet.getUltraviolet_on().setHaveToken(false);
-				// petriNet.getUltraviolet_off().setHaveToken(true);
-				petriNet.getFertilizer_empty().setHaveToken(true);
-				petriNet.getWater_empty().setHaveToken(true);
-				petriNet.getClose_ultraviolet().setTrigger(false);
 			}
 
 		};
+	}
+
+	public void updateInvariants() {
+		synchronized (lock) {
+			int[] invariants = new int[] { 0, 0, 0, 0, 0 };
+			if (petriNet.getWater_empty().isHaveToken()) {
+				invariants[0]++;
+			}
+			if (petriNet.getUltraviolet_on().isHaveToken()) {
+				invariants[0]++;
+			}
+			if (petriNet.getWater_filled().isHaveToken()) {
+				invariants[0]++;
+			}
+			if (petriNet.getValve_1_opened().isHaveToken()) {
+				invariants[0]++;
+			}
+
+			if (petriNet.getUltraviolet_on().isHaveToken()) {
+				invariants[1]++;
+			}
+			if (petriNet.getUltraviolet_off().isHaveToken()) {
+				invariants[1]++;
+			}
+
+			if (petriNet.getValve_2_opened().isHaveToken()) {
+				invariants[2]++;
+			}
+			if (petriNet.getValve_2_closed().isHaveToken()) {
+				invariants[2]++;
+			}
+
+			if (petriNet.getValve_1_opened().isHaveToken()) {
+				invariants[3]++;
+			}
+			if (petriNet.getValve_1_closed().isHaveToken()) {
+				invariants[3]++;
+			}
+
+			if (petriNet.getFertilizer_empty().isHaveToken()) {
+				invariants[4]++;
+			}
+			if (petriNet.getValve_2_opened().isHaveToken()) {
+				invariants[4]++;
+			}
+			if (petriNet.getFertilizer_filled().isHaveToken()) {
+				invariants[4]++;
+			}
+			if (petriNet.getUltraviolet_on().isHaveToken()) {
+				invariants[4]++;
+			}
+			setInvariants(invariants);
+		}
+	}
+
+	public static void main(String args[]) {
+		DVP12SEService service = new DVP12SEService("192.168.1.5");
+		service.start();
+
+		int n;
+		Scanner input = new Scanner(System.in);
+		while ((n = input.nextInt()) != 0) {
+			System.out.println("You entered " + n);
+			System.out.println("Input an integer");
+		}
+		input.close();
+		service.stop();
+		System.out.println("Out of loop");
+
 	}
 
 }
